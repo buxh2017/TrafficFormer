@@ -10,6 +10,9 @@ from tqdm import tqdm
 import multiprocessing as mp
 import traceback
 
+from data_generation.vocab_gen import build_BPE, build_vocab
+
+
 def user_excepthook(tp, val, tb):
     # print the exception to standard error
     traceback.print_exc()
@@ -158,12 +161,30 @@ def get_bursts(label_pcap, select_packet_len, corpora_path, start_index = 0, enh
     if len(packets)==0:
         return 0
 
+    # # 每个数据包的传输方向，正数​​：表示客户端到服务端（C→S），​负数​​：表示服务端到客户端（S→C）
     packet_direction = [] 
-    feature_result = extract(label_pcap)
-    for key in feature_result.keys():
-        value = feature_result[key]
-        packet_direction = [x // abs(x) for x in value.ip_lengths]
+    # # # flowcontainer 与 tshark 版本不兼容
+    # feature_result = extract(label_pcap)
+    # for key in feature_result.keys():
+    #     value = feature_result[key]
+    #     packet_direction = [x // abs(x) for x in value.ip_lengths]
+    
+    first_ip_src = None  # 存储第一个 IP 源地址
+    for packet in packets:
+        # 检查数据包是否包含IP层
+        if 'IP' in packet:
+            ip_src = packet['IP'].src
+            ip_dst = packet['IP'].dst
+            ip_len = len(packet['IP'])  # 获取 IP 数据包长度
 
+            if first_ip_src is None:
+                first_ip_src = ip_src  # 设置第一个 IP 源地址
+            if ip_src == first_ip_src:
+                packet_direction.append(1)  # 正向
+            else:
+                packet_direction.append(-1)  # 反向
+        else:
+            raise Exception("Unknown direction, non-IP data packet")
 
     if len(packet_direction) == len(packets):
         burst_extra_info = ''
@@ -255,10 +276,10 @@ def get_bursts(label_pcap, select_packet_len, corpora_path, start_index = 0, enh
                                 burst_txt += '\n'
                             burst_txt += '\n'
         if is_multi:
-            with open(corpora_path+"{}_biburst.txt".format(pid),'a') as f:
+            with open(f"{corpora_path}/{pid}_biburst.txt", 'a') as f:
                 f.write(burst_txt)
         else:
-            with open(corpora_path,'a') as f:
+            with open(f"{corpora_path}/all_biburst.txt", 'a') as f:
                 f.write(burst_txt)
 
     return 0
@@ -304,19 +325,23 @@ def get_consecutive_packets(label_pcap, select_packet_len, corpora_path,start_in
             f.write(burst_direction)
     return 0
 
-def merge(path):
-    pid_set = set()
-    for filename in os.listdir(path):
-        pid_set.add(filename.split('_')[0])
-    with open(path[:-1]+"_biburst.txt",'w') as fw1:
+def merge(burst_dir):
+    # pid_set = set()
+    # for filename in os.listdir(path):
+    #     pid_set.add(filename.split('_')[0])
+    all_biburst = p_join(os.path.dirname(burst_dir), "all_biburst.txt")
+    with open(all_biburst, 'w') as fw1:
        #with open(path[:-1]+"_extra.txt",'w') as fw2:
-            for key in pid_set:
-                with open(path + key+"_biburst.txt",'r') as fr:
-                    while True:
-                        line = fr.readline()
-                        if not line:
-                            break
-                        fw1.write(line)
+            # for key in pid_set:
+            for _p, _, files in os.walk(burst_dir):
+                for file in files:
+                    filepath = p_join(_p, file)
+                    with open(filepath,'r') as fr:
+                        while True:
+                            line = fr.readline()
+                            if not line:
+                                break
+                            fw1.write(line)
                 # with open(path + key+"_extra.txt",'r') as fr:
                 #     while True:
                 #         line = fr.readline()
@@ -324,7 +349,7 @@ def merge(path):
                 #             break
                 #         fw2.write(line)
             
-def pretrain_dataset_generation(pcapng_path,pcap_output_path,output_split_path,select_packet_len,corpora_path,start_index=0, enhance_factor = 1, is_multi=True):
+def pretrain_dataset_generation(pcapng_path,pcap_output_path,output_split_path,select_packet_len,burst_dir,start_index=0, enhance_factor = 1, is_multi=True):
     # pcapng_path: the path of pcapng files (if the traffic is the pacp type, pcapng_path = pcap_output_path)
     # pcap_output_path: the path of pcap files
     # output_split_path: the path of splited pcap files
@@ -341,9 +366,10 @@ def pretrain_dataset_generation(pcapng_path,pcap_output_path,output_split_path,s
                     #print(_parent + file)
                     convert_pcapng_2_pcap(_parent, file, pcap_output_path)
                 else:
-                    shutil.copy(_parent+"/"+file, pcap_output_path+file)
+                    shutil.copy(p_join(_parent, file), p_join(pcap_output_path, file))
     
-    if not os.path.exists(output_split_path + "splitcap"):
+    splitcap_dir = p_join(output_split_path, "splitcap")
+    if not os.path.exists(splitcap_dir):
         print("Begin to split pcap as session flows.")
         for _p,_d,files in os.walk(pcap_output_path):
             for file in files:
@@ -352,29 +378,36 @@ def pretrain_dataset_generation(pcapng_path,pcap_output_path,output_split_path,s
     print("Begin to generate burst dataset.")
     if is_multi:
         all_files = []
-        for _p,_d,files in os.walk(output_split_path + "splitcap"):
+        for _p,_d,files in os.walk(splitcap_dir):
             for file in files:
-                all_files.append(_p+"/"+file)
+                all_files.append(p_join(_p, file))
         pbar = tqdm(total=len(all_files))
         pbar.set_description('get bursts')
         update = lambda *args: pbar.update()
         
-        if not os.path.exists(corpora_path):
-            os.makedirs(corpora_path)
+        if not os.path.exists(burst_dir):
+            os.makedirs(burst_dir)
 
-        pool = mp.Pool(100)
-        
+        num_processes = min(mp.cpu_count()-1, 100)
+        pool = mp.Pool(num_processes)
         for file in all_files:
-            pool.apply_async(get_bursts, (file, select_packet_len, corpora_path, start_index, enhance_factor, True), callback=update)
+            pool.apply_async(get_bursts, (file, 
+                                          select_packet_len, 
+                                          burst_dir, 
+                                          start_index, 
+                                          enhance_factor, 
+                                          True), 
+                             callback=update)
+        
         pool.close()
         pool.join()
         print("start merge files...")
-        merge(corpora_path)
-        os.system(f'rm -r {corpora_path}')
+        merge(burst_dir)
+        os.system(f'rm -r {burst_dir}')
     else:
-        for _p,_d,files in os.walk(output_split_path + "splitcap"):
+        for _p,_d,files in os.walk(splitcap_dir):
             for file in tqdm(files):
-                get_bursts(_p+"/"+file, select_packet_len=select_packet_len,corpora_path=corpora_path,  start_index = start_index, enhance_factor=enhance_factor)
+                get_bursts(_p+"/"+file, select_packet_len=select_packet_len,corpora_path=burst_dir,  start_index = start_index, enhance_factor=enhance_factor)
 
     return 0
 
@@ -451,3 +484,31 @@ def merge_txts():
     files = file1 + file2 + file3
     random.shuffle(files)
     return
+
+
+if __name__ == "__main__":
+    this_file_path = os.path.abspath(__file__)
+    root_dir = os.path.dirname(os.path.dirname(this_file_path))
+    sys.path.append(root_dir)
+    data_dir = os.path.join(root_dir, "data")
+    input_dir = os.path.join(data_dir, "NonVPN-PCAPs-01")
+    output_dir = f"{data_dir}/output"
+    pcap_output_dir = f"{output_dir}/pcap"
+    os.makedirs(pcap_output_dir, exist_ok=True)
+    burst_dir = f"{output_dir}/burst"
+    os.makedirs(burst_dir, exist_ok=True)
+    pretrain_dataset_generation(
+                pcapng_path=input_dir,
+                pcap_output_path=pcap_output_dir,
+                output_split_path=output_dir,
+                select_packet_len=784,
+                burst_dir=burst_dir,
+                start_index=28,
+                is_multi=True
+            )
+    bigram_path = f"{output_dir}/bigram.txt"
+    corpora_to_bigram(f"{output_dir}/all_biburst.txt", bigram_path)
+    
+    build_BPE(bigram_path)
+    vocab_path = f"{output_dir}/vocab.txt"
+    build_vocab(vocab_path)

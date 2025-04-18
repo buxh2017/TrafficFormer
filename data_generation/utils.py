@@ -1,5 +1,13 @@
 import os,random,json,csv
 import ipaddress,pickle
+from os.path import join as p_join
+import sys
+
+this_file_path = os.path.abspath(__file__)
+root_dir = os.path.dirname(os.path.dirname(this_file_path))
+sys.path.append(root_dir)
+SPLIT_CAP_TOOL = f"{root_dir}/data_generation/SplitCap.exe"
+
 
 # generate random ipv4 address
 def random_ipv4():
@@ -22,33 +30,38 @@ def random_field(bits):
 
 def convert_pcapng_2_pcap(pcapng_path, pcapng_file, output_path):
     
-    pcap_file = output_path + pcapng_file.replace('pcapng','pcap')
+    pcap_file = p_join(output_path, pcapng_file.replace('pcapng','pcap'))
     cmd = "editcap -F pcap %s %s"
-    command = cmd%(pcapng_path+pcapng_file, pcap_file)
+    command = cmd%(p_join(pcapng_path, pcapng_file), pcap_file)
     os.system(command)
     return 0
 
-def split_cap(pcap_split_path, pcap_file_path, pcap_name, pcap_label='', split_way = 'bidirection'):
+def split_cap(pcap_split_path, pcap_dir, pcap_name, pcap_label='', split_way = 'bidirection'):
     # pcap_split_path + "splitcap/" + pcap_label + "/" + pcap_name is output
     # pcap_file_path+pcap_name is input
     if not os.path.exists(pcap_split_path + "/splitcap"):
         os.mkdir(pcap_split_path + "/splitcap")
     if pcap_label != '':
-        if not os.path.exists(pcap_split_path + "splitcap/" + pcap_label):
-            os.mkdir(pcap_split_path + "splitcap/" + pcap_label)
-        # if not os.path.exists(pcap_split_path + "splitcap/" + pcap_label + "/" + pcap_name):
-        #     os.mkdir(pcap_split_path + "splitcap/" + pcap_label + "/" + pcap_name)
-        output_path = pcap_split_path + "splitcap/" + pcap_label #+ "/" + pcap_name
+        # if not os.path.exists(pcap_split_path + "splitcap/" + pcap_label):
+        #     os.mkdir(pcap_split_path + "splitcap/" + pcap_label)
+        os.makedirs(p_join(pcap_split_path, "splitcap", pcap_label), exist_ok=True)
+        # # if not os.path.exists(pcap_split_path + "splitcap/" + pcap_label + "/" + pcap_name):
+        # #     os.mkdir(pcap_split_path + "splitcap/" + pcap_label + "/" + pcap_name)
+        # output_path = pcap_split_path + "splitcap/" + pcap_label #+ "/" + pcap_name
+        output_dir = p_join(pcap_split_path, "splitcap", pcap_label)
     else:
-        if not os.path.exists(pcap_split_path + "splitcap/" + pcap_name):
-            os.mkdir(pcap_split_path + "splitcap/" + pcap_name)
-        output_path = pcap_split_path + "splitcap/" + pcap_name
+        # if not os.path.exists(pcap_split_path + "splitcap/" + pcap_name):
+        #     os.mkdir(pcap_split_path + "splitcap/" + pcap_name)
+        os.makedirs(p_join(pcap_split_path, "splitcap", pcap_name), exist_ok=True)
+        # output_path = pcap_split_path + "splitcap/" + pcap_name
+        output_dir = p_join(pcap_split_path, "splitcap", pcap_name)
     split_way = "session" if split_way=='bidirection' else "flow"
-    print(pcap_file_path+pcap_name,output_path)
-    cmd = f"mono ./SplitCap.exe -r {pcap_file_path+pcap_name} -s {split_way} -o {output_path}"
+    pcap_file_path = p_join(pcap_dir, pcap_name)
+    print(pcap_file_path, output_dir)
+    cmd = f"mono {SPLIT_CAP_TOOL} -r {pcap_file_path} -s {split_way} -o {output_dir}"
     #print(cmd)
     os.system(cmd)
-    return output_path
+    return output_dir
 
 def cut(obj, sec):
     result = [obj[i:i+sec] for i in range(0,len(obj),sec)]

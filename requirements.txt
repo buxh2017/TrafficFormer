@@ -1,9 +1,9 @@
 cxxfilt==0.3.0
 docutils==0.20.1
-flowcontainer==7.2
+flowcontainer
 jieba==0.42.1
 matplotlib==3.8.0
-numpy==2.1.2
+numpy
 packaging==24.1
 pandas==2.2.3
 scapy==2.5.0
@@ -13,6 +13,6 @@ setuptools==68.0.0
 six==1.16.0
 Sphinx==8.1.3
 sphinx_rtd_theme==3.0.1
-torch==2.0.1
+torch
 torchvision==0.15.1
 tqdm==4.65.0
