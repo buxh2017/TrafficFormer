@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #-*- coding:utf-8 -*-
 import argparse
+import multiprocessing
 import os
 import sys
 sys.path.append(os.getcwd())
@@ -17,9 +18,9 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Path options.
-    parser.add_argument("--corpus_path", type=str, required=True,
+    parser.add_argument("--corpus_path", type=str, default="data/output/bigram.txt",
                         help="Path of the corpus for pretraining.")
-    parser.add_argument("--vocab_path", default=None, type=str,
+    parser.add_argument("--vocab_path", default="data/output/vocab.txt", type=str,
                         help="Path of the vocabulary file.")
     parser.add_argument("--spm_model_path", default=None, type=str,
                         help="Path of the sentence piece model.")
@@ -39,10 +40,11 @@ def main():
                              )
     parser.add_argument("--tgt_tokenizer", choices=["bert", "char", "space"], default="bert",
                         help="Specify the tokenizer.")
-    parser.add_argument("--processes_num", type=int, default=1,
+    parser.add_argument("--processes_num", type=int, default=multiprocessing.cpu_count()-2,
                         help="Split the whole dataset into `processes_num` parts, "
                              "and each part is fed to a single process in training step.")
-    parser.add_argument("--target", choices=["bert", "bertflow","lm", "mlm", "bilm", "albert", "seq2seq", "t5", "cls", "prefixlm"], default="bert",
+    parser.add_argument("--target", choices=["bert", "bertflow","lm", "mlm", "bilm", "albert", "seq2seq", "t5", "cls", "prefixlm"], 
+                        default="bert",
                         help="The training dataset target.")
     parser.add_argument("--docs_buffer_size", type=int, default=100000,
                         help="The buffer size of documents in memory, specific to targets that require negative sampling.")

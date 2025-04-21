@@ -154,7 +154,7 @@ def merge_dataset(dataset_path, workers_num):
     # Merge datasets.
     dataset_writer = open(dataset_path, "wb")
     for i in range(workers_num):
-        tmp_dataset_reader = open("/mnt/data/zgm/ET-BERT/datasets/temp/dataset-tmp-" + str(i) + ".pt", "rb")
+        tmp_dataset_reader = open(f"{self.dataset_tmp_dir}/dataset-tmp-" + str(i) + ".pt", "rb")
         while True:
             tmp_data = tmp_dataset_reader.read(2^20) 
             if tmp_data:
@@ -162,7 +162,7 @@ def merge_dataset(dataset_path, workers_num):
             else:
                 break
         tmp_dataset_reader.close()
-        os.remove("/mnt/data/zgm/ET-BERT/datasets/temp/dataset-tmp-" + str(i) + ".pt")
+        os.remove(f"{self.dataset_tmp_dir}/dataset-tmp-" + str(i) + ".pt")
     dataset_writer.close()
 
 
@@ -207,6 +207,8 @@ class Dataset(object):
         self.span_max_length = args.span_max_length
         self.docs_buffer_size = args.docs_buffer_size
         self.dup_factor = args.dup_factor
+        self.dataset_tmp_dir = "/tmp/datasets/ET-BERT/pretrain-data/temp"
+        os.makedirs(self.dataset_tmp_dir, exist_ok=True)
 
     def build_and_save(self, workers_num, split_by_flow=False):
         """
@@ -313,7 +315,7 @@ class BertDataset(Dataset):
         docs_buffer = []
         document = []
         pos = 0
-        dataset_writer = open("/mnt/data/zgm/ET-BERT/datasets/temp/dataset-tmp-" + str(proc_id) + ".pt", "wb")
+        dataset_writer = open(f"{self.dataset_tmp_dir}/dataset-tmp-" + str(proc_id) + ".pt", "wb")
         with open(self.corpus_path, mode="r", encoding="utf-8") as f:
             while pos < start:
                 f.readline()
@@ -457,7 +459,7 @@ class BertFlowDataset(Dataset):
         docs_buffer = []
         document = []
         pos = 0
-        dataset_writer = open("/mnt/data/zgm/ET-BERT/datasets/temp/dataset-tmp-" + str(proc_id) + ".pt", "wb")
+        dataset_writer = open(f"{self.dataset_tmp_dir}/dataset-tmp-" + str(proc_id) + ".pt", "wb")
         with open(self.corpus_path, mode="r", encoding="utf-8") as f:
             try:
                 #with open(self.corpus_path[:-4]+"_extra.txt", mode="r", encoding="utf-8") as fe:
