@@ -44,11 +44,11 @@ def main():
                         help="Split the whole dataset into `processes_num` parts, "
                              "and each part is fed to a single process in training step.")
     parser.add_argument("--target", choices=["bert", "bertflow","lm", "mlm", "bilm", "albert", "seq2seq", "t5", "cls", "prefixlm"], 
-                        default="bert",
+                        default="bertflow",
                         help="The training dataset target.")
     parser.add_argument("--docs_buffer_size", type=int, default=100000,
                         help="The buffer size of documents in memory, specific to targets that require negative sampling.")
-    parser.add_argument("--seq_length", type=int, default=128, help="Sequence length of instances.")
+    parser.add_argument("--seq_length", type=int, default=512, help="Sequence length of instances.")
     parser.add_argument("--tgt_seq_length", type=int, default=128, help="Target sequence length of instances.")
     parser.add_argument("--dup_factor", type=int, default=5,
                         help="Duplicate instances multiple times.")

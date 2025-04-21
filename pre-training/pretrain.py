@@ -12,9 +12,9 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Path options.
-    parser.add_argument("--dataset_path", type=str, default="dataset.pt",
+    parser.add_argument("--dataset_path", type=str, default="data/output/dataset.pt",
                         help="Path of the preprocessed dataset.")
-    parser.add_argument("--vocab_path", default=None, type=str,
+    parser.add_argument("--vocab_path", default="data/output/vocab.txt", type=str,
                         help="Path of the vocabulary file.")
     parser.add_argument("--spm_model_path", default=None, type=str,
                         help="Path of the sentence piece model.")
@@ -24,13 +24,13 @@ def main():
                         help="Path of the target sentence piece model.")
     parser.add_argument("--pretrained_model_path", type=str, default=None,
                         help="Path of the pretrained model.")
-    parser.add_argument("--output_model_path", type=str, required=True,
+    parser.add_argument("--output_model_path", type=str, default="model.bin",
                         help="Path of the output model.")
     parser.add_argument("--config_path", type=str, default="models/bert/base_config.json", #define the model 
                         help="Config file of model hyper-parameters.")
 
     # Training and saving options. 
-    parser.add_argument("--total_steps", type=int, default=100000,
+    parser.add_argument("--total_steps", type=int, default=90000,
                         help="Total training steps.")
     parser.add_argument("--save_checkpoint_steps", type=int, default=10000,
                         help="Specific steps to save model checkpoint.")
@@ -38,7 +38,7 @@ def main():
                         help="Specific steps to print prompt.")
     parser.add_argument("--accumulation_steps", type=int, default=1,
                         help="Specific steps to accumulate gradient.")
-    parser.add_argument("--batch_size", type=int, default=32,
+    parser.add_argument("--batch_size", type=int, default=64,
                         help="Training batch size. The actual batch_size is [batch_size x world_size x accumulation_steps].")
     parser.add_argument("--instances_buffer_size", type=int, default=25600,
                         help="The buffer size of instances in memory.")
@@ -62,7 +62,8 @@ def main():
     parser.add_argument("--decoder", choices=["transformer"], default="transformer", help="Decoder type.")
     parser.add_argument("--pooling", choices=["mean", "max", "first", "last"], default="first",
                         help="Pooling type.")
-    parser.add_argument("--target", choices=["bert","bertflow","lm", "mlm", "bilm", "albert", "seq2seq", "t5", "cls", "prefixlm"], default="bert",
+    parser.add_argument("--target", choices=["bert","bertflow","lm", "mlm", "bilm", "albert", "seq2seq", "t5", "cls", "prefixlm"], 
+                        default="bertflow",
                         help="The training target of the pretraining model.")
     parser.add_argument("--tie_weights", action="store_true",
                         help="Tie the word embedding and softmax weights.")
@@ -91,8 +92,8 @@ def main():
     optimization_opts(parser)
 
     # GPU options.
-    parser.add_argument("--world_size", type=int, default=1, help="Total number of processes (GPUs) for training.")
-    parser.add_argument("--gpu_ranks", default=[], nargs='+', type=int, help="List of ranks of each process."
+    parser.add_argument("--world_size", type=int, default=3, help="Total number of processes (GPUs) for training.")
+    parser.add_argument("--gpu_ranks", default=[0], nargs='+', type=int, help="List of ranks of each process."
                         " Each process has a unique integer rank whose value is in the interval [0, world_size), and runs in a single GPU.")
     parser.add_argument("--master_ip", default="tcp://localhost:12345", type=str, help="IP-Port of master for training.")
     parser.add_argument("--backend", choices=["nccl", "gloo"], default="nccl", type=str, help="Distributed backend.")
