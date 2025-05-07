@@ -723,3 +723,19 @@ def enhance_based_tsv(path,filename,new_file_prefix,enhance_factor=1):
     dataset = dataset.sample(frac = 1)
     # print(dataset.head())
     write_dataset_tsv(dataset['datagram'], dataset['label'], path, new_file_prefix)
+
+
+if __name__ == "__main__":
+    this_file_path = os.path.abspath(__file__)
+    root_dir = os.path.dirname(os.path.dirname(this_file_path))
+    sys.path.append(root_dir)
+    data_dir = os.path.join(root_dir, "data")
+    input_dir = os.path.join(data_dir, "NonVPN-PCAPs-01")
+    output_dir = f"{data_dir}/output"
+    pcap_output_dir = f"{output_dir}/pcap"
+    os.makedirs(pcap_output_dir, exist_ok=True)
+    burst_dir = f"{output_dir}/burst"
+    os.makedirs(burst_dir, exist_ok=True)
+    convert_splitcap()
+    
+    
